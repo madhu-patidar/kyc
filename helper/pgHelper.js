@@ -1,31 +1,32 @@
 import  { Pool }  from 'pg';
 
-exports.ExecuteQuery = async (config, pgFunction, params = "") => {
-    if(typeof pgFunction  != 'string') return [];
-    console.log(pgFunction);
+exports.ExecuteQuery = async (config, pgFunction, params = []) => {
+    let query = 'SELECT ' + pgFunction + '(';
+    for (var i=1; i <= params.length; ++i ) {
+        query += i > 1 ? ', $' + i : '$' + i ;
+        i++;
+     }
+    query += ')';
     let response = {
         status: false,
         message: "",
-        data: ""
+        data: [],
+        rowCount: 0
     }
     const pool = new Pool({
         connectionString: config
     });
     
-    await pool.connect()
-        .catch(function (err) {
-            console.log('pool.connect() failed : ', err.message, new Date().toSqlDate())
-        });
     try {
-       return pool.query(pgFunction, params).then(res =>{
-            let dbresults = res.rows;
-            response = {
-                status: true,
-                message: "success",
-                data: dbresults
-            }
-            return response
-        })
+     let res = await pool.query(query, params);
+        let dbresults = res.rows;
+        let rowCount = res.rowCount
+        response = {
+            rowCount: rowCount,
+            status: true,
+            message: "success",
+            data: dbresults
+        }
     } catch (err) {
         response = {
             status: false,
@@ -40,15 +41,5 @@ exports.ExecuteQuery = async (config, pgFunction, params = "") => {
             console.log('error closing pool', errpool.message);
         }
     }
-}
-
-exports.GenerateQuery =  (functionName, columnArr = []) =>{
-    let query = 'SELECT ' + functionName + '(';
-    let i = 1;
-    columnArr.forEach(element => {
-        query += i > 1 ? ', $' + i : '$' + i ;
-        i++;
-    });
-    query += ')';
-    return query;
+    return response;
 }
